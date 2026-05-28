@@ -103,28 +103,24 @@ This applies to all agents working on this repo, not just Claude Code.
 
 ## Versioning and releases
 
-This project follows [SemVer](https://semver.org/) with two conventions specific to how releases are surfaced:
+[SemVer](https://semver.org/). **`CHANGELOG.md` is the canonical version reference**; tags are a projection of it, created automatically.
 
-1. **Tags always.** Every version that lands on `main` gets an annotated git tag (`git tag -a vX.Y.Z -m "vX.Y.Z"`). No exceptions for patch versions. The tag goes on the merge commit, not on individual contributor commits inside the merge bubble. Tags pay off in three places: Homebrew formula pinning (`archive/refs/tags/vX.Y.Z.tar.gz` is stabler than commit SHAs), `git log vX.Y.Z-1..vX.Y.Z` for changelog work, and `gh release create <tag>` later if a release ever needs to be promoted retroactively.
+The release flow:
+1. While work accumulates on `DEV`, the `## vX.Y.Z — TBD` heading at the top of `CHANGELOG.md` collects bullets. (For automated triage runs, see the routine note below.)
+2. When the maintainer is ready to release, they finalize the heading (`TBD` → today's date), merge `DEV → main` with `merge --no-ff` (so the release boundary is visible in `git log main`), and push `main`.
+3. [`.github/workflows/tag-on-merge.yml`](.github/workflows/tag-on-merge.yml) fires on the push, sees the new `## vX.Y.Z` heading in the CHANGELOG diff, and creates a lightweight tag at the merge commit. **No `git tag` step for the maintainer.**
 
-2. **Formal GitHub Releases only for major versions.** Patch (`vX.Y.Z` where `Z` increments) and minor (`Y` increments) bumps ship as a tag and a CHANGELOG entry — that's the entire release process. Formal `gh release create` with release notes, asset uploads, and the "Latest release" badge is reserved for major versions (`X` increments), where breaking changes or significant new surface area warrant a notification to people who follow only Releases.
+No formal `gh release create` at any cadence — the CHANGELOG entry IS the release notes, and the tag IS the release marker. If a particular release ever warrants a formal GitHub Release page (e.g. a major with breaking changes), it can be promoted retroactively from the existing tag.
 
-Why: patches and minors are the quiet bug-fix-and-improve cadence; CHANGELOG.md is the canonical record. Majors are the "you should read this before upgrading" events; that's what Releases are for.
+The workflow is idempotent: if the tag already exists (someone tagged manually before the workflow caught up), it's a no-op. It also no-ops on pushes that don't add a new version heading (typo fixes, docs-only edits, etc.).
 
-When the maintainer says "release v1.1.1", the steps are:
-- Finalize CHANGELOG (replace `TBD` with today's date)
-- Merge DEV → main (`merge --no-ff` so the release boundary is visible in `git log main`)
-- `git tag -a v1.1.1 -m "v1.1.1"` on the merge commit
-- `git push origin main --follow-tags`
-- No `gh release create` call (that's for majors)
-
-Tags are **annotated** (`git tag -a`, not lightweight) and are created **only** on `main`'s release merge commits — never on individual contributor commits inside a merge bubble, never on `DEV`.
-
-Note: v1.1.0 shipped before this convention was documented and therefore has no tag. The convention applies forward from v1.1.1. Don't retroactively tag v1.1.0 without explicit maintainer ask.
+Existing tags `v1.0.0`, `v1.1.0`, `v1.1.1` are lightweight and were created by hand before the workflow existed. The workflow only *adds* missing tags; it never reconciles existing ones. Don't bother re-tagging them.
 
 ### Homebrew formula and self-referential SHA
 
 The Homebrew formula at `Formula/claude-usage.rb` lives inside this same repo. Be careful when bumping it: if the formula's `url` points at a tarball that **contains the formula itself with that sha256**, the sha256 is self-referential and uncomputable. Practical rule: a release's formula must point at the **previous** release's tarball, never its own. In v1.1.1 the formula points at v1.1.0's commit-SHA tarball, so brew users installing v1.1.1's formula receive v1.1.0 code — that's the trade-off of keeping the formula in-tree.
+
+Now that the auto-tag workflow exists, future formula bumps can use the tag-tarball URL (`archive/refs/tags/vX.Y.Z.tar.gz`) instead of commit SHAs — stabler and shorter — as long as the tag-tarball pointed at is from the *previous* release.
 
 ## Weekly triage routine
 
