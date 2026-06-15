@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.0 — TBD
+## v1.3.0 — 2026-06-15
 
 ### Dashboard
 
@@ -11,6 +11,10 @@
 ### Scanner / CLI
 
 - Added a single source-of-truth `VERSION` constant (`scanner.VERSION`) surfaced via `python cli.py --version`. It stays in lockstep with the top CHANGELOG heading and the extension's `package.json` (a parity test enforces all three match).
+
+### Project / docs
+
+- Rewrote the extension's local-install instructions: a prebuilt `.vsix` is now downloadable from every GitHub Release (no build step), and the build-from-source section gives a Windows-correct invocation (`powershell -ExecutionPolicy Bypass -File scripts\install.ps1`) — running `.\scripts\install.ps1` from Git Bash or by double-clicking just opens it in an editor.
 
 ## v1.2.6 — 2026-06-15
 
