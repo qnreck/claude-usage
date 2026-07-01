@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.5.4 — 2026-07-01
+
+### Dashboard
+
+- Added a **Title** column to the Recent Sessions table (after Project) and its CSV export, showing Claude Code's own session title: a user-set `custom-title` takes priority over an AI-generated `ai-title`. Long titles wrap within the column (min width 160px). Sessions without a title record show a muted **Untitled** placeholder — there is no fallback to the first user message, so prompt text never leaks into the table (#147, thanks @arojunior).
+- The Recent Sessions **CSV export now includes full session IDs** (the table still shows the 8-char prefix for readability, but an 8-char prefix isn't useful in an export) (#147).
+
+### VS Code extension
+
+- The embedded dashboard now waits up to **20s** (was 10s) for the server to become ready on cold start — the one-time topic backfill can slow the first launch — and a failed start now offers a **Retry** button (both in the error notification and on the panel) instead of only pointing at the command palette (#147).
+
+### Scanner
+
+- The scanner now parses `custom-title` / `ai-title` transcript records into a new `sessions.topic` column (additive in-place migration; existing DBs upgrade without a rebuild). Titles are captured even when Claude Code appends them after the turns (picked up on the next incremental scan), and a title-only record can never create a token-less phantom session row (#147, thanks @arojunior).
+- On upgrading an existing database, the next scan runs a **one-time topic backfill**: it re-reads the title records already present in previously-scanned transcripts (which an incremental scan would otherwise skip) so old sessions get a Topic too, then records via a `schema_meta` flag that it's done so it never repeats. Only title records are read, so token totals are untouched (#147).
+
 ## v1.5.3 — 2026-07-01
 
 ### Packaging
