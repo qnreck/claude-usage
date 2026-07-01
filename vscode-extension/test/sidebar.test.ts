@@ -117,6 +117,12 @@ describe("renderHtml with null URL (status pane)", () => {
     expect(html).not.toContain("frame-src");
   });
 
+  it("offers a Retry button that invokes the open command", () => {
+    const html = renderHtml(null, "Failed to start dashboard: timed out", NONCE);
+    expect(html).toContain('href="command:claudeUsage.open"');
+    expect(html).toContain("Retry");
+  });
+
   it("renders the logo and an img-src CSP when an icon URI is provided", () => {
     const html = renderHtml(null, "", NONCE, "https://host/icon.svg", "vscode-webview://abc");
     expect(html).toContain('class="logo"');

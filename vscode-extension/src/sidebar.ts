@@ -63,12 +63,15 @@ export function renderHtml(
   p { color: #BFBFBF; font-size: 13px; margin: 0 0 8px; }
   p.hint { color: #6F6F70; }
   code { background: #1E1F20; border: 1px solid #2C2D2E; border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+  a.retry { display: inline-block; margin: 6px 0 14px; padding: 6px 14px; font-size: 13px; font-weight: 600; color: #161617; background: #BFBFBF; border-radius: 6px; text-decoration: none; }
+  a.retry:hover { background: #D8D8D8; }
 </style>
 </head>
 <body>
 <div class="brand">${logo}<h1>Claude Code Usage</h1></div>
 <p>${escapeHtml(statusText) || "The dashboard server is not running yet."}</p>
-<p class="hint">Run <code>Claude Usage: Open Dashboard</code> from the command palette to start it.</p>
+<p><a class="retry" href="command:claudeUsage.open">&#8635; Retry</a></p>
+<p class="hint">Or run <code>Claude Usage: Open Dashboard</code> from the command palette.</p>
 </body>
 </html>`;
 }
@@ -113,7 +116,10 @@ export class DashboardSidebar implements vscode.WebviewViewProvider {
 
   resolveWebviewView(view: vscode.WebviewView): void {
     this.view = view;
-    view.webview.options = { enableScripts: true };
+    // enableCommandUris lets the status pane's "Retry" link invoke
+    // claudeUsage.open via a command: URI. The pane renders only our own
+    // trusted HTML (statusText is escaped), so allowing command URIs is safe.
+    view.webview.options = { enableScripts: true, enableCommandUris: true };
     // Resolve a webview-safe URI for the bundled icon so the status pane shows
     // the same logo as the dashboard header. Guarded so node-only tests (whose
     // fake view has no asWebviewUri / no vscode.Uri) don't blow up.

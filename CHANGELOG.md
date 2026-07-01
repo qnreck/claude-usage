@@ -4,7 +4,11 @@
 
 ### Dashboard
 
-- Added a **Topic** column to the Recent Sessions table (placed after Project) and its CSV export, derived from Claude Code's own session titles: a user-set `custom-title` takes priority over an AI-generated `ai-title`. Long topics wrap within the column. Sessions without a title record show an empty Topic — there is no fallback to the first user message, so prompt text never leaks into the table (#147, thanks @arojunior).
+- Added a **Title** column to the Recent Sessions table (after Project) and its CSV export, showing Claude Code's own session title: a user-set `custom-title` takes priority over an AI-generated `ai-title`. Long titles wrap within the column (min width 160px). Sessions without a title record show an empty cell — there is no fallback to the first user message, so prompt text never leaks into the table (#147, thanks @arojunior).
+
+### VS Code extension
+
+- The embedded dashboard now waits up to **20s** (was 10s) for the server to become ready on cold start — the one-time topic backfill can slow the first launch — and a failed start now offers a **Retry** button (both in the error notification and on the panel) instead of only pointing at the command palette (#147).
 
 ### Scanner
 

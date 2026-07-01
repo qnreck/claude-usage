@@ -359,7 +359,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   .cost-na { color: var(--muted); font-family: monospace; font-size: 11px; }
   .num { font-family: monospace; }
   .muted { color: var(--muted); }
-  .topic-cell { max-width: 260px; overflow-wrap: anywhere; font-size: 12px; color: var(--text); }
+  .topic-cell { box-sizing: border-box; min-width: 160px; max-width: 260px; overflow-wrap: anywhere; font-size: 12px; color: var(--text); }
   .section-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
   .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
   .section-header .section-title { margin-bottom: 0; }
@@ -570,7 +570,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       <thead><tr>
         <th>Session</th>
         <th>Project</th>
-        <th>Topic</th>
+        <th>Title</th>
         <th class="sortable" onclick="setSessionSort('last')">Last Active <span class="sort-icon" id="sort-icon-last"></span></th>
         <th class="sortable" onclick="setSessionSort('duration_min')">Duration <span class="sort-icon" id="sort-icon-duration_min"></span></th>
         <th>Model</th>
@@ -1841,7 +1841,7 @@ function exportModelCSV() {
 }
 
 function exportSessionsCSV() {
-  const header = ['Session', 'Project', 'Topic', 'Last Active', 'Duration (min)', 'Model', 'Turns', 'Input', 'Output', 'Cache Read', 'Cache Creation', 'Est. Cost'];
+  const header = ['Session', 'Project', 'Title', 'Last Active', 'Duration (min)', 'Model', 'Turns', 'Input', 'Output', 'Cache Read', 'Cache Creation', 'Est. Cost'];
   const rows = lastFilteredSessions.map(s => {
     const cost = calcCost(s.model, s.input, s.output, s.cache_read, s.cache_creation);
     return [s.session_id, s.project, s.topic, s.last, s.duration_min, s.model, s.turns, s.input, s.output, s.cache_read, s.cache_creation, cost.toFixed(4)];
