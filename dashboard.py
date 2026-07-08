@@ -23,6 +23,13 @@ DB_PATH = Path(os.environ.get("CLAUDE_USAGE_DB", Path.home() / ".claude" / "usag
 # would misfire there because the Marketplace publish lags the GitHub release).
 SURFACE = "web"
 
+# Optional URL path prefix for reverse-proxy deployments (e.g. /mydashboard).
+# When set, the server answers at <CONTEXT_PATH>/, <CONTEXT_PATH>/api/data,
+# <CONTEXT_PATH>/api/rescan, and <CONTEXT_PATH>/icon.svg; bare / redirects
+# to <CONTEXT_PATH>/. Configure via CONTEXT_PATH env var or --context-path CLI.
+# Must start with "/" and must NOT end with "/" (e.g. "/mydashboard").
+CONTEXT_PATH = os.environ.get("CONTEXT_PATH", "")
+
 
 def get_dashboard_data(db_path=DB_PATH):
     if not db_path.exists():
@@ -239,7 +246,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Claude Code Usage Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script>window.APP_CONFIG = __APP_CONFIG_JSON__;</script>
+<script>window.APP_CONFIG = __APP_CONFIG_JSON__; const _BASE = window.APP_CONFIG.contextPath || '';</script>
 <style>
   :root {
     --bg: #161617;      /* page base */
@@ -279,8 +286,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   header .header-icon {
     width: 26px; height: 26px; flex-shrink: 0; display: block;
     background-color: var(--text);
-    -webkit-mask: url("icon.svg") no-repeat center / contain;
-    mask: url("icon.svg") no-repeat center / contain;
+    -webkit-mask: url("__ICON_URL__") no-repeat center / contain;
+    mask: url("__ICON_URL__") no-repeat center / contain;
   }
   header .meta { color: var(--muted); font-size: 12px; text-align: right; line-height: 1.5; margin-right: 20px; }
   #rescan-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-top: 4px; }
@@ -1889,7 +1896,7 @@ async function triggerRescan() {
   btn.disabled = true;
   btn.textContent = '\u21bb Scanning...';
   try {
-    const resp = await fetch('/api/rescan', { method: 'POST' });
+    const resp = await fetch(_BASE + '/api/rescan', { method: 'POST' });
     const d = await resp.json();
     btn.textContent = '\u21bb Rescan (' + d.new + ' new, ' + d.updated + ' updated)';
     await loadData();
@@ -1903,7 +1910,7 @@ async function triggerRescan() {
 // ── Data loading ───────────────────────────────────────────────────────────
 async function loadData() {
   try {
-    const resp = await fetch('/api/data');
+    const resp = await fetch(_BASE + '/api/data');
     const d = await resp.json();
     if (d.error) {
       // The server binds and serves before the initial scan finishes, so on a
@@ -2199,17 +2206,47 @@ class DashboardHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
+    def _routed_path(self):
+        """Strip CONTEXT_PATH prefix and return the local path, or None if no match."""
+        raw = urlparse(self.path).path
+        prefix = CONTEXT_PATH  # e.g. "/mydashboard"
+        if not prefix:
+            return raw
+        # Redirect bare "/" to the context root when a prefix is configured.
+        if raw == "/":
+            return None  # caller handles redirect
+        if raw == prefix or raw.startswith(prefix + "/"):
+            return raw[len(prefix):] or "/"
+        return None  # no match → 404
+
     def do_GET(self):
         # self.path includes the query string, but every URL the UI emits has
         # one (e.g. "/?range=all"); compare the bare path so bookmarkable
         # URLs don't fall through to 404.
-        path = urlparse(self.path).path
+        path = self._routed_path()
+
+        # Redirect bare "/" → context root when CONTEXT_PATH is active.
+        if path is None and CONTEXT_PATH and urlparse(self.path).path == "/":
+            location = CONTEXT_PATH + "/"
+            self.send_response(301)
+            self.send_header("Location", location)
+            self.end_headers()
+            return
+
+        if path is None:
+            self.send_response(404)
+            self.end_headers()
+            return
+
         if path in ("/", "/index.html"):
             # Inject runtime config (version + surface) the page can't know at
             # author time. json.dumps produces a valid JS object literal for the
             # `window.APP_CONFIG = __APP_CONFIG_JSON__;` placeholder in the head.
-            config = json.dumps({"version": VERSION, "surface": SURFACE})
-            html = HTML_TEMPLATE.replace("__APP_CONFIG_JSON__", config)
+            icon_url = (CONTEXT_PATH or "") + "/icon.svg"
+            config = json.dumps({"version": VERSION, "surface": SURFACE, "contextPath": CONTEXT_PATH or ""})
+            html = (HTML_TEMPLATE
+                    .replace("__APP_CONFIG_JSON__", config)
+                    .replace("__ICON_URL__", icon_url))
             body = html.encode("utf-8")
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
@@ -2250,7 +2287,11 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        path = urlparse(self.path).path
+        path = self._routed_path()
+        if path is None:
+            self.send_response(404)
+            self.end_headers()
+            return
         if path == "/api/rescan":
             # Incremental scan: ingest new/changed JSONL without touching
             # existing rows. The DB is append-only and the only durable store
@@ -2277,14 +2318,19 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
 
-def serve(host=None, port=None, surface=None):
-    global SURFACE
+def serve(host=None, port=None, surface=None, context_path=None):
+    global SURFACE, CONTEXT_PATH
     if surface:
         SURFACE = surface
+    if context_path is not None:
+        # Normalise: must start with "/" and must not end with "/".
+        cp = context_path.rstrip("/")
+        CONTEXT_PATH = ("/" + cp.lstrip("/")) if cp else ""
     host = host or os.environ.get("HOST", "localhost")
     port = port or int(os.environ.get("PORT", "8080"))
     server = ThreadingHTTPServer((host, port), DashboardHandler)
-    print(f"Dashboard running at http://{host}:{port}")
+    root = f"http://{host}:{port}{CONTEXT_PATH}/"
+    print(f"Dashboard running at {root}")
     print("Press Ctrl+C to stop.")
     try:
         server.serve_forever()
