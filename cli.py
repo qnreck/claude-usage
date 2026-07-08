@@ -387,7 +387,7 @@ def cmd_stats():
     conn.close()
 
 
-def cmd_dashboard(projects_dir=None, host=None, port=None, no_browser=False, surface=None):
+def cmd_dashboard(projects_dir=None, host=None, port=None, no_browser=False, surface=None, context_path=None):
     import threading
     import time
 
@@ -395,6 +395,7 @@ def cmd_dashboard(projects_dir=None, host=None, port=None, no_browser=False, sur
 
     host = host or os.environ.get("HOST", "localhost")
     port = int(port or os.environ.get("PORT", "8080"))
+    context_path = context_path or os.environ.get("CONTEXT_PATH", "")
 
     # Bind and serve the port *first*, then scan in the background. A cold scan
     # over a large ~/.claude/projects backlog can take well over a minute, and
@@ -419,14 +420,15 @@ def cmd_dashboard(projects_dir=None, host=None, port=None, no_browser=False, sur
     # extension passes --no-browser since it embeds the dashboard in a webview.
     if not no_browser:
         import webbrowser
+        cp = ("/" + context_path.strip("/")) if context_path.strip("/") else ""
 
         def open_browser():
             time.sleep(1.0)
-            webbrowser.open(f"http://{host}:{port}")
+            webbrowser.open(f"http://{host}:{port}{cp}/")
 
         threading.Thread(target=open_browser, daemon=True).start()
 
-    serve(host=host, port=port, surface=surface)
+    serve(host=host, port=port, surface=surface, context_path=context_path)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
@@ -439,7 +441,7 @@ Usage:
   python cli.py today                        Show today's usage summary
   python cli.py week                         Show last 7 days (per-day + by-model)
   python cli.py stats                        Show all-time statistics
-  python cli.py dashboard [--projects-dir PATH] [--host HOST] [--port PORT] [--no-browser] [--surface SURFACE]
+  python cli.py dashboard [--projects-dir PATH] [--host HOST] [--port PORT] [--no-browser] [--surface SURFACE] [--context-path PATH]
                                                  Scan + start dashboard (opens a browser unless --no-browser)
   python cli.py --version                    Print the version and exit
 """
@@ -480,6 +482,7 @@ def main():
             port=parse_named_arg(rest, "--port"),
             no_browser="--no-browser" in rest,
             surface=parse_named_arg(rest, "--surface"),
+            context_path=parse_named_arg(rest, "--context-path"),
         )
     elif command == "scan" and projects_dir:
         cmd_scan(projects_dir=projects_dir)
