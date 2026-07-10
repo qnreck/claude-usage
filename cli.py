@@ -105,7 +105,6 @@ def cmd_scan(projects_dir=None):
 
 def cmd_today():
     conn = require_db()
-    conn.row_factory = sqlite3.Row
     today = date.today().isoformat()
 
     rows = conn.execute("""
@@ -174,7 +173,6 @@ def cmd_today():
 
 def cmd_week():
     conn = require_db()
-    conn.row_factory = sqlite3.Row
 
     today_d = date.today()
     start_d = today_d - timedelta(days=6)
@@ -270,7 +268,6 @@ def cmd_week():
 
 def cmd_stats():
     conn = require_db()
-    conn.row_factory = sqlite3.Row
 
     # Session-level info (count, date range)
     session_info = conn.execute("""
