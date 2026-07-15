@@ -2,11 +2,21 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+
+ENV_FILE="$REPO_DIR/.env"
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  # shellcheck source=/dev/null
+  source "$ENV_FILE"
+  set +a
+fi
+
 IMAGE="claude-usage"
-CONTAINER="claude-usage"
-NETWORK="repowatch-shared"
-PORT=9898
+CONTAINER="${CONTAINER:-claude-usage}"
+NETWORK="${NETWORK:-repowatch-shared}"
+PORT="${PORT:-9898}"
 CONTEXT_PATH="${CONTEXT_PATH:-}"
+SCAN_INTERVAL_SECONDS="${SCAN_INTERVAL_SECONDS:-}"
 
 echo "▶  Checking for running container..."
 if docker ps -q --filter "name=^${CONTAINER}$" | grep -q .; then
@@ -21,9 +31,9 @@ if ! docker network inspect "$NETWORK" &>/dev/null; then
     "$NETWORK"
 fi
 
-echo "⬇  Pulling latest..."
-cd "$REPO_DIR"
-git pull
+# echo "⬇  Pulling latest..."
+# cd "$REPO_DIR"
+# git pull
 
 echo "🔨  Building image..."
 docker build -t "$IMAGE" .
@@ -40,6 +50,9 @@ DOCKER_ARGS=(
 )
 if [ -n "$CONTEXT_PATH" ]; then
   DOCKER_ARGS+=(-e "CONTEXT_PATH=${CONTEXT_PATH}")
+fi
+if [ -n "$SCAN_INTERVAL_SECONDS" ]; then
+  DOCKER_ARGS+=(-e "SCAN_INTERVAL_SECONDS=${SCAN_INTERVAL_SECONDS}")
 fi
 docker run "${DOCKER_ARGS[@]}" "$IMAGE"
 

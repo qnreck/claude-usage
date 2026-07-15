@@ -416,6 +416,22 @@ def cmd_dashboard(projects_dir=None, host=None, port=None, no_browser=False, sur
 
     threading.Thread(target=background_scan, daemon=True).start()
 
+    scan_interval = int(os.environ.get("SCAN_INTERVAL_SECONDS", "0"))
+    if scan_interval > 0:
+        print(f"Auto-scan enabled every {scan_interval}s.")
+
+        def periodic_scan():
+            while True:
+                time.sleep(scan_interval)
+                print("Auto-scan: scanning...")
+                try:
+                    scan(projects_dir=projects_dir)
+                    print("Auto-scan: complete.")
+                except Exception as exc:
+                    print(f"Auto-scan: error — {exc}")
+
+        threading.Thread(target=periodic_scan, daemon=True).start()
+
     # Open a browser for users running this as a script (see README). The VS Code
     # extension passes --no-browser since it embeds the dashboard in a webview.
     if not no_browser:
